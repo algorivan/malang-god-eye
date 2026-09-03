@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MALANG GOD-EYE // 253 Public CCTV Live Command Center</title>
+
+  <!-- Google Fonts: Inter (Clean Modern Sans) & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Leaflet CSS (Open Source Map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Leaflet MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+
+  <!-- HLS.js for Real Live Stream m3u8 Playback -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <!-- AI Detection Overlay Script: Socket.IO -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- ====================================================================
+         TOP COMMAND RIBBON (HEADER)
+         ==================================================================== -->
+    <header class="command-header">
+      <div class="brand-section">
+        <div class="logo-symbol">
+          <i class="bi bi-camera-video"></i>
+        </div>
+        <div class="brand-text">
+          <h1>MALANG <span>GOD-EYE</span></h1>
+          <div class="brand-subtitle">
+            <span class="live-indicator-dot"></span>
+            PUSAT PENGAWASAN 253 CCTV PUBLIK KOTA MALANG
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Telemetry & Official Status Widget -->
+      <div class="header-telemetry">
+        <div class="telemetry-item">
+          <i class="bi bi-clock-history"></i>
+          <span id="header-wib-clock">--:--:-- WIB</span>
+        </div>
+        <div class="telemetry-separator">|</div>
+        <div class="telemetry-item">
+          <i class="bi bi-cloud-sun"></i>
+          <span>Kota Malang: <strong>24°C</strong></span>
+        </div>
+        <div class="telemetry-separator">|</div>
+        <div class="telemetry-item">
+          <i class="bi bi-camera-video"></i>
+          <span>Database: <strong style="color:var(--status-online);" id="header-total-cams">253 Kamera Aktif</strong></span>
+        </div>
+      </div>
+
+      <!-- Header Action Controls & View Switcher -->
+      <div class="header-actions">
+        <div class="view-mode-tabs">
+          <button class="hud-btn active" id="btn-view-map" onclick="setAppViewMode('map')" title="Tampilan Peta Interaktif">
+            <i class="bi bi-map"></i> PETA CCTV
+          </button>
+          <button class="hud-btn" id="btn-view-grid" onclick="setAppViewMode('grid')" title="Tampilan Langsung 9-Grid Live Feed">
+            <i class="bi bi-grid-3x3-gap-fill"></i> 9-GRID LIVE MATRIX
+          </button>
+        </div>
+        <button id="audio-toggle-btn" class="hud-btn" title="Toggle Suara Taktis">
+          <i class="bi bi-volume-up"></i> AUDIO AKTIF
+        </button>
+        <a href="https://cctv.malangkota.go.id/sebaran-cctv" target="_blank" class="hud-btn" style="text-decoration:none;" title="Kunjungi Portal Resmi Pemkot Malang">
+          <i class="bi bi-box-arrow-up-right"></i> PORTAL PEMKOT
+        </a>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         MAIN WORKSPACE AREA
+         ==================================================================== -->
+    <div class="workspace-container">
+      
+      <!-- LEFT SIDEBAR: CCTV NODE CATALOGUE -->
+      <aside class="intel-sidebar" id="intel-sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <i class="bi bi-crosshair2"></i> TITIK CCTV KOTA MALANG
+          </div>
+          <span class="badge-count" id="cctv-count-badge">253 Titik</span>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div class="search-filter-box">
+          <div class="search-input-wrapper">
+            <i class="bi bi-search"></i>
+            <input type="text" id="search-camera-input" class="hud-search-input" placeholder="Cari jalan, persimpangan, ID...">
+          </div>
+          
+          <!-- District Filter Chips -->
+          <div class="district-chips-container">
+            <button class="district-chip active" data-district="ALL" onclick="filterByDistrict('ALL')">Semua (253)</button>
+            <button class="district-chip" data-district="Klojen" onclick="filterByDistrict('Klojen')">Klojen</button>
+            <button class="district-chip" data-district="Lowokwaru" onclick="filterByDistrict('Lowokwaru')">Lowokwaru</button>
+            <button class="district-chip" data-district="Blimbing" onclick="filterByDistrict('Blimbing')">Blimbing</button>
+            <button class="district-chip" data-district="Sukun" onclick="filterByDistrict('Sukun')">Sukun</button>
+            <button class="district-chip" data-district="Kedungkandang" onclick="filterByDistrict('Kedungkandang')">Kedungkandang</button>
+          </div>
+        </div>
+
+        <!-- Scrollable CCTV List -->
+        <div class="cctv-node-list" id="cctv-node-list">
+          <!-- Populated by JavaScript from cctv-data.js -->
+        </div>
+
+        <!-- Sidebar Bottom Ticker -->
+        <div class="sidebar-intel-ticker">
+          <div class="ticker-header">
+            <span><i class="bi bi-broadcast"></i> Log Pemantauan Kota</span>
+            <span style="color:var(--status-online);">REAL-TIME</span>
+          </div>
+          <div class="ticker-content" id="ticker-text-content">
+            Memuat telemetri pemantauan Kota Malang...
+          </div>
+        </div>
+      </aside>
+
+      <!-- CENTER: MAIN VIEWPORT (SWITCHABLE: MAP OR 9-GRID DIRECT IN-PAGE) -->
+      <main class="main-content-viewport">
+        
+        <!-- 1. MAP VIEWPORT -->
+        <div class="map-viewport" id="map-viewport">
+          <!-- Leaflet Map Container -->
+          <div id="malang-map"></div>
+
+          <!-- Floating HUD: Open Source Map Layer Switcher -->
+          <div class="map-hud-top-left">
+            <div class="map-layer-selector">
+              <button class="layer-btn active" data-layer="osm" onclick="switchMapLayer('osm')">
+                <i class="bi bi-map-fill"></i> OPENSTREETMAP
+              </button>
+              <button class="layer-btn" data-layer="cartodark" onclick="switchMapLayer('cartodark')">
+                <i class="bi bi-shield-shaded"></i> OSM DARK
+              </button>
+              <button class="layer-btn" data-layer="hot" onclick="switchMapLayer('hot')">
+                <i class="bi bi-heart-pulse-fill"></i> OSM HUMANITARIAN
+              </button>
+              <button class="layer-btn" data-layer="opentopo" onclick="switchMapLayer('opentopo')">
+                <i class="bi bi-triangle-half"></i> OPENTOPOMAP
+              </button>
+            </div>
+
+            <div class="map-telemetry-pill">
+              <span><i class="bi bi-geo"></i> WGS84: <strong id="telemetry-lat">-7.97860</strong>, <strong id="telemetry-lng">112.63420</strong></span>
+              <span>DATA: <strong>OPENSTREETMAP</strong></span>
+              <span>TOTAL: <strong>253 KAMERA</strong></span>
+            </div>
+          </div>
+
+          <!-- Floating Smart Route CCTV Corridor Planner (From - To Auto-Sort) -->
+          <div class="map-route-planner">
+            <div class="planner-header">
+              <div class="planner-title">
+                <i class="bi bi-signpost-2-fill"></i> KORIDOR RUTE CCTV (FROM - TO)
+              </div>
+              <span class="planner-badge">AUTO-SORT</span>
+            </div>
+            
+            <div class="planner-inputs">
+              <div class="route-field">
+                <span class="field-indicator from">A</span>
+                <select id="route-from-select" class="route-select" onchange="onRouteSelectionChanged()">
+                  <option value="">Pilih Titik Awal (From)...</option>
+                  <option value="ARJOSARI" selected>Flyover / Terminal Arjosari</option>
+                  <option value="SUHAT">Simpang Soekarno-Hatta (Suhat)</option>
+                  <option value="UB">Universitas Brawijaya / Veteran</option>
+                  <option value="KAYUTANGAN">Kayutangan Heritage</option>
+                  <option value="TUGU">Balai Kota / Alun-Alun Tugu</option>
+                  <option value="PASAR_BESAR">Pasar Besar Malang</option>
+                  <option value="IJEN">Ijen Boulevard</option>
+                  <option value="GADANG">Terminal Gadang</option>
+                </select>
+              </div>
+
+              <div class="route-field">
+                <span class="field-indicator to">B</span>
+                <select id="route-to-select" class="route-select" onchange="onRouteSelectionChanged()">
+                  <option value="">Pilih Titik Tujuan (To)...</option>
+                  <option value="ARJOSARI">Flyover / Terminal Arjosari</option>
+                  <option value="SUHAT">Simpang Soekarno-Hatta (Suhat)</option>
+                  <option value="UB">Universitas Brawijaya / Veteran</option>
+                  <option value="KAYUTANGAN">Kayutangan Heritage</option>
+                  <option value="TUGU" selected>Balai Kota / Alun-Alun Tugu</option>
+                  <option value="PASAR_BESAR">Pasar Besar Malang</option>
+                  <option value="IJEN">Ijen Boulevard</option>
+                  <option value="GADANG">Terminal Gadang</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="planner-actions">
+              <button class="hud-btn hud-btn-primary" onclick="calculateRouteCorridor()" style="flex:1;">
+                <i class="bi bi-compass"></i> URUTKAN KAMERA RUTE
+              </button>
+              <button class="hud-btn" onclick="clearRouteCorridor()" title="Reset Rute">
+                <i class="bi bi-arrow-counterclockwise"></i>
+              </button>
+            </div>
+
+            <div class="route-status-box" id="route-status-box" style="display:none;">
+              <div class="route-status-text" id="route-status-text">8 CCTV di Sepanjang Rute</div>
+              <button class="hud-btn hud-btn-primary" id="btn-show-corridor-grid" onclick="showCorridorInGrid()" style="width:100%; margin-top:6px;">
+                <i class="bi bi-grid-3x3-gap-fill"></i> TAMPILKAN LIVE FEED RUTE DI MATRIX
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Jump Shortcuts to Iconic Landmarks -->
+          <div class="map-quick-jump">
+            <span class="quick-jump-label"><i class="bi bi-lightning-charge"></i> SEKTOR CEPAT:</span>
+            <button class="jump-btn" onclick="jumpToLocation([-7.9786, 112.6342], 16)">Balai Kota / Tugu</button>
+            <button class="jump-btn" onclick="jumpToLocation([-7.9789, 112.6294], 17)">Kayutangan Heritage</button>
+            <button class="jump-btn" onclick="jumpToLocation([-7.9443, 112.6186], 16)">Simpang Suhat</button>
+            <button class="jump-btn" onclick="jumpToLocation([-7.9599, 112.6215], 16)">Veteran / UB</button>
+            <button class="jump-btn" onclick="jumpToLocation([-7.9331, 112.6581], 16)">Flyover Arjosari</button>
+            <button class="jump-btn" onclick="jumpToLocation([-7.9859, 112.6334], 16)">Pasar Besar</button>
+            <button class="jump-btn" onclick="jumpToLocation([-7.9635, 112.6253], 16)">Ijen Boulevard</button>
+          </div>
+        </div>
+
+        <!-- 2. DIRECT IN-PAGE LIVE MATRIX VIEWPORT (NOT POPUP) -->
+        <div class="matrix-viewport" id="matrix-viewport" style="display:none;">
+          <div class="matrix-toolbar">
+            <div class="matrix-title-group">
+              <div class="matrix-title">
+                <i class="bi bi-grid-3x3-gap-fill"></i> MATRIKS PENGAWASAN LIVE CCTV KOTA MALANG
+              </div>
+              <div class="matrix-subtitle" id="matrix-active-info">Mode 9-Grid View (3x3) // 9 Live Feed Real-Time Aktif</div>
+            </div>
+
+            <div class="matrix-toolbar-actions">
+              <!-- Grid Layout Selector: 4, 6, 9 Grid -->
+              <div class="matrix-layout-switch">
+                <button class="matrix-layout-btn" data-grid="4" onclick="setMatrixLayout(4)" title="Mode 4 Kamera (2x2)">
+                  <i class="bi bi-grid-fill"></i> 4 GRID
+                </button>
+                <button class="matrix-layout-btn" data-grid="6" onclick="setMatrixLayout(6)" title="Mode 6 Kamera (3x2)">
+                  <i class="bi bi-grid-3x2-gap-fill"></i> 6 GRID
+                </button>
+                <button class="matrix-layout-btn active" data-grid="9" onclick="setMatrixLayout(9)" title="Mode 9 Kamera (3x3)">
+                  <i class="bi bi-grid-3x3-gap-fill"></i> 9 GRID (3x3)
+                </button>
+              </div>
+
+              <!-- District Filter for Matrix -->
+              <select id="matrix-district-filter" class="matrix-select-hud" onchange="changeMatrixDistrict(this.value)" title="Filter Sektor Kamera">
+                <option value="ALL">Seluruh Kota Malang (253 Kamera)</option>
+                <option value="Klojen">Kecamatan Klojen</option>
+                <option value="Lowokwaru">Kecamatan Lowokwaru</option>
+                <option value="Blimbing">Kecamatan Blimbing</option>
+                <option value="Sukun">Kecamatan Sukun</option>
+                <option value="Kedungkandang">Kecamatan Kedungkandang</option>
+              </select>
+
+              <button class="hud-btn" onclick="initMatrixWall()" title="Muat Ulang Seluruh Live Feed">
+                <i class="bi bi-arrow-clockwise"></i> REFRESH FEED
+              </button>
+            </div>
+          </div>
+
+          <div class="matrix-grid-container layout-9" id="matrix-grid-wall">
+            <!-- Populated with real live video streams by JavaScript -->
+          </div>
+        </div>
+
+      </main>
+
+      <!-- RIGHT SIDEBAR: INSPECTOR & AI OBJECT DETECTION COUNTER -->
+      <aside class="inspector-panel" id="inspector-panel">
+        
+        <!-- Tab Switcher on Right Panel: Single Camera vs AI Object Counter -->
+        <div class="right-panel-tabs">
+          <button class="right-tab-btn active" id="tab-cam-inspect" onclick="switchRightPanelTab('inspect')">
+            <i class="bi bi-camera-video"></i> KAMERA AKTIF
+          </button>
+          <button class="right-tab-btn" id="tab-ai-detect" onclick="switchRightPanelTab('detect')">
+            <i class="bi bi-cpu"></i> OBJECT DETECTION & COUNTER
+          </button>
+        </div>
+
+        <!-- VIEW 1: SINGLE CAMERA INSPECTION -->
+        <div id="panel-view-inspect" class="panel-tab-content active">
+          <!-- Target Header Information -->
+          <div class="inspector-header">
+            <div class="inspector-title-group">
+              <span class="target-id-badge" id="inspector-cam-id">
+                <i class="bi bi-camera-video"></i> MLG-CAM-001
+              </span>
+              <div class="target-name" id="inspector-cam-name">Memuat Nama Kamera...</div>
+              <div class="target-location-sub" id="inspector-cam-location">Alamat Kamera Kota Malang</div>
+            </div>
+            <button class="hud-btn" onclick="reloadCurrentStream()" title="Muat Ulang Stream">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+
+          <!-- Stream Source Switcher Tabs -->
+          <div class="stream-source-tabs">
+            <button class="stream-tab-btn active" id="tab-webview" onclick="switchStreamViewMode('webview')">
+              <i class="bi bi-broadcast"></i> LIVE FEED STREAM
+            </button>
+            <button class="stream-tab-btn" id="tab-real-stream" onclick="switchStreamViewMode('real')">
+              <i class="bi bi-play-circle"></i> HLS PLAYER
+            </button>
+          </div>
+
+          <!-- LIVE FEED SCREEN DISPLAY (WITH AI BOUNDING BOX OVERLAY) -->
+          <div class="screen-wrapper" id="main-screen-wrapper">
+            <!-- 1. EMBEDDED WEBVIEW STREAM (Native Same-Origin Webview Frame) -->
+            <iframe id="cctv-webview-frame" src="about:blank" allow="autoplay; fullscreen; encrypted-media"></iframe>
+
+            <!-- 2. REAL HLS LIVE VIDEO ELEMENT (Alternative Direct Player) -->
+            <video id="real-hls-video" autoplay muted playsinline controls style="display:none;"></video>
+
+            <!-- 3. OPEN-SOURCE AI OBJECT DETECTION CANVAS OVERLAY -->
+            <canvas id="ai-detection-overlay" width="640" height="360"></canvas>
+          </div>
+
+          <!-- Clean Action Buttons -->
+          <div class="inspector-action-buttons" style="padding:14px; display:flex; gap:8px;">
+            <button class="hud-btn hud-btn-primary" id="btn-toggle-ai-overlay" onclick="toggleAIDetectionOverlay()" style="flex:1;">
+              <i class="bi bi-bounding-box"></i> OVERLAY AI: AKTIF
+            </button>
+            <button class="hud-btn" onclick="captureSnapshot()" style="flex:1;">
+              <i class="bi bi-camera-fill"></i> SNAPSHOT
+            </button>
+          </div>
+        </div>
+
+        <!-- VIEW 2: AI OBJECT DETECTION & LIVE VEHICLE COUNTER (Active in 9-Grid Mode) -->
+        <div id="panel-view-detect" class="panel-tab-content">
+          <div class="ai-counter-section">
+            <div class="ai-header-bar">
+              <div class="ai-title">
+                <i class="bi bi-cpu-fill"></i> AI OBJECT DETECTION ENGINE
+              </div>
+              <span class="ai-live-badge"><span class="live-indicator-dot"></span> DETECTING</span>
+            </div>
+            <div style="padding: 4px 0 8px; font-size: 10px; font-family: 'JetBrains Mono', monospace;">
+              <span id="ai-backend-status" style="color: #f43f5e;">&#9679; YOLO BACKEND: OFFLINE</span>
+            </div>
+
+            <!-- 4 Live Classification Counter Cards -->
+            <div class="ai-counters-grid">
+              <div class="ai-counter-card">
+                <div class="ai-card-icon car"><i class="bi bi-car-front-fill"></i></div>
+                <div class="ai-card-info">
+                  <span class="ai-card-label">MOBIL</span>
+                  <strong class="ai-card-value" id="count-cars">0</strong>
+                </div>
+              </div>
+
+              <div class="ai-counter-card">
+                <div class="ai-card-icon bike"><i class="bi bi-bicycle"></i></div>
+                <div class="ai-card-info">
+                  <span class="ai-card-label">MOTOR</span>
+                  <strong class="ai-card-value" id="count-bikes">0</strong>
+                </div>
+              </div>
+
+              <div class="ai-counter-card">
+                <div class="ai-card-icon truck"><i class="bi bi-truck-front-fill"></i></div>
+                <div class="ai-card-info">
+                  <span class="ai-card-label">BUS / TRUK</span>
+                  <strong class="ai-card-value" id="count-trucks">0</strong>
+                </div>
+              </div>
+
+              <div class="ai-counter-card">
+                <div class="ai-card-icon person"><i class="bi bi-person-walking"></i></div>
+                <div class="ai-card-info">
+                  <span class="ai-card-label">PEJALAN</span>
+                  <strong class="ai-card-value" id="count-pedestrians">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Traffic Flow & Density Metrics -->
+            <div class="traffic-metrics-box">
+              <div class="traffic-metric-item">
+                <span class="metric-label">Status Kepadatan:</span>
+                <span class="metric-badge status-medium" id="ai-density-status">SEDANG (NORMAL)</span>
+              </div>
+              <div class="traffic-metric-item">
+                <span class="metric-label">Laju Kendaraan:</span>
+                <strong id="ai-flow-rate">610 kend/jam</strong>
+              </div>
+              <div class="traffic-metric-item">
+                <span class="metric-label">Akurasi Deteksi:</span>
+                <strong style="color:var(--status-online);">YOLOv11n + ByteTrack</strong>
+              </div>
+            </div>
+
+            <!-- Live Object Classification Activity Stream -->
+            <div class="ai-log-wrapper">
+              <div class="ai-log-header">
+                <span><i class="bi bi-activity"></i> Log Deteksi Real-Time</span>
+                <button class="hud-btn" style="padding:2px 6px; font-size:10px;" onclick="resetAICounters()">RESET</button>
+              </div>
+              <div class="ai-detection-log" id="ai-detection-log-stream">
+                <!-- Populated dynamically by JavaScript -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- Leaflet JavaScript (Open Source Map Library) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Leaflet MarkerCluster Plugin JS (Open Source Clustering) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+
+  <!-- CCTV Data & App Scripts -->
+  <script src="cctv-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

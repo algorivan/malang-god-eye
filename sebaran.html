@@ -1,0 +1,1011 @@
+
+<!doctype html>
+<html class="no-js" lang="id">
+
+<head>
+	<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CCTV KOTA MALANG - Portal Resmi CCTV Lalu Lintas & Publik</title>
+    <meta name="description" content="Layanan resmi pemantauan CCTV Kota Malang secara real-time. Pantau kondisi lalu lintas, titik rawan, dan area publik di wilayah Pemerintah Kota Malang di sini.">
+    <link rel="canonical" href="https://cctv.malangkota.go.id/sebaran-cctv" />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Inter (Estetika Modern) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS dan JS CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Leaflet Marker Cluster CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.4.1/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.4.1/MarkerCluster.Default.css" />
+    <!-- Leaflet Marker Cluster JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.4.1/leaflet.markercluster.js"></script>
+
+    <!-- jQuery CDN BARU -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" 
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" 
+            crossorigin="anonymous"></script>
+        
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <script type="application/ld+json">
+        {
+        "@context": "https://schema.org",
+        "@type": "GovernmentService",
+        "serviceType": "Public Safety Monitoring",
+        "provider": {
+            "@type": "GovernmentOrganization",
+            "name": "Pemerintah Kota Malang",
+            "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Malang",
+            "addressRegion": "Jawa Timur",
+            "addressCountry": "ID"
+            }
+        },
+        "name": "CCTV KOTA MALANG - Portal Resmi CCTV Lalu Lintas & Publik",
+        "url": "https://cctv.malangkota.go.id/sebaran-cctv",
+        "description": "Layanan resmi pemantauan CCTV Kota Malang secara real-time. Pantau kondisi lalu lintas, titik rawan, dan area publik di wilayah Pemerintah Kota Malang di sini."
+        }
+    </script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#4F46E5',
+                        'primary-hover': '#4338CA',
+                        'dark-overlay': 'rgba(15, 23, 42, 0.9)',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* CSS Kustom untuk memastikan peta mengisi penuh dan font */
+        body, html {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Mencegah scrollbar */
+        }
+        #map-container {
+            height: 100vh;
+            width: 100vw;
+            z-index: 0; /* Pastikan peta di lapisan bawah */
+        }
+
+        /* Styling untuk container popup agar mudah diidentifikasi saat di-hover */
+        .leaflet-popup-content-wrapper {
+            border-radius: 0.5rem;
+        }
+        
+        /* Tambahkan kelas ini ke popup untuk mengontrol interaksi */
+        .hover-controlled-popup {
+            padding: 1rem;
+            /* Hapus text-align: center agar tombol bisa di kiri/kanan */
+        }
+        
+        /* Styling dasar untuk tombol */
+        .popup-button {
+            padding: 0.5rem 1rem;
+            margin-top: 0.5rem;
+            border-radius: 0.375rem; /* rounded-md */
+            font-weight: 600; /* font-semibold */
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+        }
+        .popup-button:hover {
+            opacity: 0.9;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .modal-overlay {
+            /* Fix posisi tetap di seluruh viewport */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Efek Glassmorphism: blur pada latar belakang */
+            backdrop-filter: blur(8px);
+            /* Mulai tersembunyi */
+            display: none; 
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 50; /* Z-index tinggi */
+        }
+
+        .modal-overlay.active {
+            /* Tampilkan saat aktif */
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-card {
+            /* Transisi untuk card */
+            transform: translateY(20px);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: translateY(0);
+        }
+
+        /* Style khusus untuk tombol play/pause overlay */
+        #play-pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 50; /* Di atas video tapi di bawah status info */
+            transition: background-color 0.3s ease;
+        }
+        #play-pause-overlay:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+        .play-button-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 9999px;
+            color: white;
+            transition: background-color 0.2s, opacity 0.3s;
+        }
+        .play-button-icon:hover {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        /* Sembunyikan tombol play saat video sedang berjalan (dikelola oleh JS) */
+        .hidden-play {
+            opacity: 0;
+        }
+    </style>
+</head>
+	
+<body class="bg-gray-50">
+    <!-- Area Peta Utama -->
+    <div id="map-container"></div>
+    <!-- LOGO Pemerintah Kota Malang (Teks dihilangkan) -->
+
+    <div class="absolute bottom-4 left-4 z-20 flex items-center space-x-4">
+    
+    <!-- <div class="absolute bottom-4 left-4 z-20 p-3"> -->
+        <!-- Logo 1: Pemkot Malang -->
+        <img src="https://cctv.malangkota.go.id/assets/images/logo-dark.png" 
+            alt="Logo Pemerintah Kota Malang" 
+            class="h-10 w-auto object-contain">
+            
+        <div class="h-8 w-[1px] bg-gray-400"></div>
+        
+        <!-- Logo 2: Mbois Berkelas (Placeholder untuk preview, ganti dengan path lokal Anda) -->
+        <img src="https://cctv.malangkota.go.id/assets/images/logo-mbois-berkelas.png" 
+            alt="Logo Mbois Berkelas" 
+            class="h-10 w-auto object-contain"
+            style="height: 120px; width: auto; margin-left: -10px; margin-right: -30px;">
+            
+        <div class="h-8 w-[1px] bg-gray-400"></div>
+
+        <img src="https://malangkota.go.id/wp-content/themes/boal/assetslp/img/hut/logo_112_gelap.png" 
+            alt="Logo Pemerintah Kota Malang" 
+            class="h-10 w-auto object-contain"
+            style="height: 90px; width: auto; margin-left: 7px; margin-bottom: -20px;">
+            
+        <!-- <div class="h-8 w-[1px] bg-gray-400"></div> -->
+        
+        <!-- Logo 3: HUT Kota Malang -->
+        <!-- <img src="https://malangkota.go.id/wp-content/themes/boal/assetslp/img/hut/logo_112_gelap.png" 
+            alt="Logo HUT Malang" 
+            class="h-10 w-auto object-contain"
+            onerror="this.onerror=null; this.src='https://dummyimage.com/100x40/ffffff/000000&text=Logo+3';"> -->
+            
+    </div>
+    <!-- Kontrol Interaktif (Tengah Atas) -->
+    <div id="controls-container" class="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col space-y-2 p-4 bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-100 md:flex-row md:space-y-0 md:space-x-3 md:w-auto w-[95%]">
+        <select onchange="handleKecamatanChange()" id="kecamatan-dropdown" class="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:border-blue-500 transition duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+            <!-- Opsi akan diisi oleh JavaScript -->
+            <option value='99'>SELURUH KECAMATAN</option><option value='1'>BLIMBING</option><option value='2'>KLOJEN</option><option value='3'>KEDUNGKANDANG</option><option value='4'>SUKUN</option><option value='5'>LOWOKWARU</option>        </select>
+        <div class="relative w-full md:w-[28rem]"> 
+            <div class="flex">
+                <input type="text" id="location-search" oninput="handleSearchInput()" placeholder="Cari lokasi: Kelurahan, Kecamatan, Kota" class="px-4 py-2 border border-gray-300 rounded-l-lg flex-grow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <button onclick="searchLocation()" id="search-button" class="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition duration-150 active:bg-blue-800 flex items-center justify-center">
+                    <!-- Search Icon (Lucide/SVG equivalent) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+            </div>
+            <!-- Suggestions List (Z-index tinggi agar muncul di atas peta dan elemen lain) -->
+            <div id="suggestions-list" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto z-20 hidden">
+            <!-- Saran akan dirender di sini -->
+            </div>
+        </div>
+    </div>
+    <!-- Skrip Leaflet, Fungsionalitas Peta, dan Pencarian -->
+
+    <!-- Video Modal Overlay -->
+    <div id="videoModal" class="modal-overlay justify-center items-center bg-dark-overlay">
+        
+        <!-- Modal Card: Pusat dari Tampilan -->
+        <div class="modal-card bg-white w-full max-w-4xl mx-4 rounded-3xl shadow-2xl overflow-hidden relative">
+
+            <!-- Group Tombol Aksi (Kanan Atas) -->
+            <div class="absolute top-3 right-5 flex space-x-2 z-10">
+                <!-- Tombol Refresh -->
+                <button id="refreshBtn" class="p-2 text-gray-500 hover:text-blue-600 transition duration-150 bg-white/50 backdrop-blur-sm rounded-full shadow-sm hover:bg-white" title="Refresh Stream">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+
+                <!-- Tombol Tutup -->
+                <button class="close-modal p-2 text-gray-400 hover:text-red-600 transition duration-150 bg-white/50 backdrop-blur-sm rounded-full shadow-sm hover:bg-white" title="Close">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+
+            <!-- Header Modal -->
+            <div class="p-6 border-b border-gray-100">
+                <h3 class="text-xl font-bold text-gray-800">Stream Camera</h3>
+                <p class="text-sm text-gray-500" id="camera_address"></p>
+            </div>
+
+            <!-- Kontainer Video (Rasio 16:9) -->
+            <div class="video-container">
+                <div id="cctv-viewer" class="relative">
+                </div>
+            </div>
+
+            <!-- Footer Modal & Info Tambahan -->
+            <div class="p-6 flex flex-col md:flex-row justify-between items-center bg-gray-50">
+                <!-- <div class="flex items-center space-x-2">
+                    <p class="text-sm text-gray-600">
+                        Kami menghargai masukan Anda. Jika Anda menemukan kendala atau memiliki saran, silakan sampaikan melalui
+                        <a href="#" class="text-blue-600 hover:text-blue-800 font-medium underline">tautan kontak resmi kami</a>.
+                    </p>
+                </div>
+                <button class="w-full md:w-auto px-6 py-2 bg-primary-blue text-white font-medium rounded-lg shadow-md hover:bg-primary-hover transition duration-200">
+                    Feedback
+                </button> -->
+            </div>
+            
+        </div>
+    </div>
+</body>
+<script>
+
+    var map;
+    var currentTileLayer;
+    var marker;
+    var markerClusterGroup; 
+    var tiles;
+    var chache_id_marker;
+    var markers;
+
+    const LeafIcon = L.Icon.extend({
+    options: {
+        iconSize:     [50, "auto"],
+        shadowSize:   [50, 64],
+        iconAnchor:   [14, 50],
+        shadowAnchor: [4, 62],
+        popupAnchor:  [-3, -76]
+        }
+    });
+
+    var marker_var_list = {}
+    var arr_access = {}
+    var arr_marker = {}
+
+    var chache_id_marker = ""
+
+    const defaultCoordinates = [-7.977835920988577, 112.6339323707601]; 
+    const defaultZoom = 13;
+
+    var blueIcon = new LeafIcon({iconUrl: 'https://cctv.malangkota.go.id/assets/images/pin_cam_map_bl_sky.png'});
+    var greenIcon = new LeafIcon({iconUrl: 'https://cctv.malangkota.go.id/assets/images/pin_cam_map_gr.png'});
+    var redIcon = new LeafIcon({iconUrl: 'https://cctv.malangkota.go.id/assets/images/pin_cam_map_rd.png'});
+
+    var MARKER_COORDS = []
+
+    var MASTER_MARKER_COORDS = []
+
+    let KELURAHAN_COORDS = []
+
+    let KECAMATAN_COORDS = JSON.parse('[{"id_m_kecamatan":"1","nama_m_kecamatan":"BLIMBING","lat_m_kecamatan":"-7.954","lng_m_kecamatan":"112.645","is_active_m_kecamatan":"1","is_delete_m_kecamatan":"0","created_at":"2025-05-07 12:24:44","created_by":"ADM202503270000012","updated_at":"2025-05-07 12:24:44","updated_by":"ADM202503270000012"},{"id_m_kecamatan":"2","nama_m_kecamatan":"KLOJEN","lat_m_kecamatan":"-7.971","lng_m_kecamatan":"112.628","is_active_m_kecamatan":"1","is_delete_m_kecamatan":"0","created_at":"2025-05-07 12:24:44","created_by":"ADM202503270000012","updated_at":"2025-05-07 12:24:44","updated_by":"ADM202503270000012"},{"id_m_kecamatan":"3","nama_m_kecamatan":"KEDUNGKANDANG","lat_m_kecamatan":"-7.99","lng_m_kecamatan":"112.658","is_active_m_kecamatan":"1","is_delete_m_kecamatan":"0","created_at":"2025-05-07 12:24:44","created_by":"ADM202503270000012","updated_at":"2025-05-07 12:24:44","updated_by":"ADM202503270000012"},{"id_m_kecamatan":"4","nama_m_kecamatan":"SUKUN","lat_m_kecamatan":"-8.01","lng_m_kecamatan":"112.61","is_active_m_kecamatan":"1","is_delete_m_kecamatan":"0","created_at":"2025-05-07 12:24:44","created_by":"ADM202503270000012","updated_at":"2025-05-07 12:24:44","updated_by":"ADM202503270000012"},{"id_m_kecamatan":"5","nama_m_kecamatan":"LOWOKWARU","lat_m_kecamatan":"-7.94","lng_m_kecamatan":"112.61","is_active_m_kecamatan":"1","is_delete_m_kecamatan":"0","created_at":"2025-05-07 12:24:44","created_by":"ADM202503270000012","updated_at":"2025-05-07 12:24:44","updated_by":"ADM202503270000012"}]')
+
+    const mapLayers = {
+        osm: {
+            url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        },
+        satellite: {
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri'
+        }
+    };
+
+
+    //=========================================================================//
+    //-----------------------------------construct-----------------------------//
+    //=========================================================================//
+        $(document).ready(function(){
+            $(initMap);
+
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#controls-container').length) {
+                    $("#suggestions-list").addClass('hidden');
+                }
+            });
+        })
+
+    //=========================================================================//
+    //-----------------------------------construct-----------------------------//
+    //=========================================================================//
+
+    //=========================================================================//
+    //-----------------------------------Helpers-------------------------------//
+    //=========================================================================//
+
+        function panToLocation(lat, lng, zoom = 15) {
+            map.setView([lat, lng], zoom);
+            $("#suggestions-list").empty().addClass('hidden');
+            $("#location-search").val('');
+        }
+    //=========================================================================//
+    //-----------------------------------Helpers-------------------------------//
+    //=========================================================================//
+    
+    //=========================================================================//
+    //------------------------------api_geeting_marker-------------------------//
+    //=========================================================================//
+        function get_cameras_api(){
+            markerClusterGroup.clearLayers();
+
+            var data_main = new FormData();
+                data_main.append('m_kecamatan_id', $("#kecamatan-dropdown").val());
+
+            $.ajax({
+                url: "https://cctv.malangkota.go.id/api/v2/get-cameras",
+                dataType: 'html',
+                cache: false,
+                contentType: false,
+                processData: false,
+                data: data_main,
+                type: 'post',
+                success: function(res) {
+                    var json_res = JSON.parse(res)
+                        coordinate_json = json_res.msg_detail
+                        
+                    setup_data(coordinate_json)
+                }
+            });
+
+
+        }
+    //=========================================================================//
+    //------------------------------api_geeting_marker-------------------------//
+    //=========================================================================//
+
+    //=========================================================================//
+    //------------------------------render_pin_on_map--------------------------//
+    //=========================================================================//
+
+        function setup_data(list_cameras){
+            var list_data = list_cameras.list_data
+            var list_data_kelurahan = list_cameras.list_data_kelurahan
+            var list_data_kecamatan = list_cameras.list_data_kecamatan
+
+            // render_kecamatan(list_data_kecamatan)
+
+            render_marker(list_data)
+            console.log(list_data)
+        }
+
+        function render_marker(list_data){
+            const selectedId = $("#kecamatan-dropdown").val();
+
+            marker_var_list = {}
+            arr_access = {}
+            arr_marker = {}
+
+            for (const key in list_data) {
+                var a = list_data[key];
+                // console.log(a)
+
+                var lat = isNaN(parseFloat(a["latitude"]))  ? 0 : parseFloat(a["latitude"]);
+                var lng = isNaN(parseFloat(a["longitude"])) ? 0 : parseFloat(a["longitude"]);
+
+                var address = isNaN(parseFloat(a["address"])) ? "" : parseFloat(a["address"]);
+                
+                var nama_kecamatan = isNaN(parseFloat(a["nama_kecamatan"])) ? "" : parseFloat(a["nama_kecamatan"]);
+
+                var set_marker = blueIcon
+                if(a["jenis_item_cameras"] == "2"){
+                    var set_marker = greenIcon
+                }
+
+                let marker = L.marker(new L.LatLng(lat, lng),  {icon: set_marker}, {uniqueID: a["id_cameras"]});
+
+                markerClusterGroup.addLayer(marker);
+
+                MARKER_COORDS[key] = a
+
+
+                marker.customId = key;
+                marker.bindPopup(`
+                    <div class="hover-controlled-popup">
+                        <h3 class="text-xl font-bold text-gray-900 mb-2 border-b pb-1">${a["nama_kecamatan"]}</h3>
+                        <p class="text-sm text-gray-700 mb-3">
+                            LABEL: ${a["name"]}
+                        </p>
+                        <p class="text-sm text-gray-700 mb-3">
+                            LOKASI: ${a["address"]}
+                        </p>
+                        <div class="flex justify-between space-x-2 mt-4">
+                            <button id="btn-detail" class="popup-button bg-blue-600 text-white flex-1">
+                                Lihat Detail
+                            </button>
+                            <button id="btn-tutup" class="popup-button bg-red-600 text-white flex-1 popup-close-button">
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                `, { 
+                    closeButton: false, 
+                    autoClose: false, 
+                });
+                
+                function checkAndClosePopup() {
+                    if (!isHoveringMarker && !isHoveringPopup) {
+                        marker.closePopup();
+                    } else if (isHoveringMarker) {
+                    } else if (isHoveringPopup) {
+                    }
+                }
+
+                marker.on('mouseover', function(e) {
+                    isHoveringMarker = true;
+                    marker.openPopup();
+
+                });
+
+                marker.on('mouseout', function(e) {
+                    isHoveringMarker = false;
+                    setTimeout(checkAndClosePopup, 100); 
+                });
+
+                marker.on('popupopen', function (e) {
+                    const popupElement = e.popup.getElement();
+
+                    if (popupElement) {
+                        $(popupElement).on('mouseenter', function() {
+                            isHoveringPopup = true;
+                        });
+                        
+                        $(popupElement).on('mouseleave', function() {
+                            isHoveringPopup = false;
+                            setTimeout(checkAndClosePopup, 50);
+                        });
+
+                        $(popupElement).find('.popup-close-button').on('click', function() {
+                            e.popup.close();
+                        });
+
+                        $(popupElement).find('#btn-detail').on('click', function() {
+                            // console.log('Tombol Detail diklik untuk marker ID:', lat);
+                            
+                            openModal();
+                            var targetID = e.target.customId
+
+                            $("#camera_address").html(MARKER_COORDS[targetID]['address'])
+                            chache_id_marker = MARKER_COORDS[targetID]['stream_id'];
+
+                            loadCCTVContent(MARKER_COORDS[targetID]['stream_id']);
+                        });
+
+                    }
+
+                    //=========================================================================//
+                    //-----------------------------------modal---------------------------------//
+                    //=========================================================================//
+                        const $modal = $('#videoModal');
+
+                        function closeModal() {
+                            if ($modal.hasClass('active')) {
+                                $modal.removeClass('active');
+                                setTimeout(() => {
+                                    $modal.css('display', 'none');
+                                }, 100);
+                            }
+                            stopStream()
+                        }
+
+                        function openModal() {
+                            $modal.css('display', 'flex');
+                            setTimeout(() => {
+                                $modal.addClass('active');
+                            }, 10);
+                        }
+
+                        $('#openModalBtn').on('click', openModal);
+                        $('.close-modal').on('click', closeModal);
+
+                        $modal.on('click', function(event) {
+                            if (event.target === $modal[0]) {
+                                closeModal();
+                            }
+                        });
+                    //=========================================================================//
+                    //-----------------------------------modal---------------------------------//
+                    //=========================================================================//
+                });
+
+                marker.on('popupclose', function (e) {
+                    const popupElement = e.popup.getElement();
+                    if (popupElement) {
+                        $(popupElement).off('mouseenter mouseleave');
+                    }
+                    isHoveringMarker = false; 
+                    isHoveringPopup = false;
+                });
+            }
+
+            if(selectedId != '99'){
+                MASTER_MARKER_COORDS = MARKER_COORDS
+            }
+
+            // console.log(MARKER_COORDS);
+            map.addLayer(markerClusterGroup);
+        }
+
+        function render_kecamatan(list_data_kecamatan){
+            var str_option_kec = "<option value='99'>SELURUH KECAMATAN</option>"
+
+            for (const key in list_data_kecamatan) {
+                var a = list_data_kecamatan[key];
+                KECAMATAN_COORDS.push(a);
+
+                str_option_kec += `<option value='${a["id_m_kecamatan"]}'>${a["nama_m_kecamatan"]}</option>`
+            }
+
+            $("#kecamatan-dropdown").html(str_option_kec)
+        }
+    //=========================================================================//
+    //------------------------------render_pin_on_map--------------------------//
+    //=========================================================================//
+
+    //=========================================================================//
+    //------------------------------init-map-----------------------------------//
+    //=========================================================================//
+        function initMap() {
+            try {
+                map = L.map('map-container', { 
+                    zoomControl: false
+                }).setView(defaultCoordinates, defaultZoom);
+                
+                L.control.zoom({
+                    position: 'bottomright' 
+                }).addTo(map);
+
+                currentTileLayer = L.tileLayer(mapLayers.osm.url, {
+                    attribution: mapLayers.osm.attribution,
+                    maxZoom: 19,
+                }).addTo(map);
+
+                markerClusterGroup = L.markerClusterGroup(
+                    // {
+                    //     chunkedLoading: true,
+                    //     maxClusterRadius: 80, 
+                    //     disableClusteringAtZoom: 15 // Hentikan clustering saat zoom mencapai 15
+                    // }
+                );
+
+                get_cameras_api()
+
+            } catch (error) {
+            }
+        }
+    //=========================================================================//
+    //------------------------------init-map-----------------------------------//
+    //=========================================================================//
+
+    //=========================================================================//
+    //------------------------------Pencarian & Filter-------------------------//
+    //=========================================================================//
+
+        function handleSearchInput() {
+            const query = $("#location-search").val().trim().toLowerCase();
+
+            const $suggestionsList = $("#suggestions-list");
+            $suggestionsList.empty();
+
+            if (query.length < 3) {
+                $suggestionsList.addClass('hidden');
+                return;
+            }
+
+            let suggestions = [];
+
+            // console.log(MARKER_COORDS);
+            
+            MARKER_COORDS.forEach(marker => {
+                if (marker.address.toLowerCase().includes(query) ||
+                    marker.name.toLowerCase().includes(query) || 
+                    marker.nama_kecamatan?.toLowerCase().includes(query)) {
+                    suggestions.push({
+                        title: marker.name,
+                        name: `${marker.address} (${marker.nama_kecamatan})`,
+                        lat: parseFloat(marker.latitude),
+                        lng: parseFloat(marker.longitude)
+                    });
+                }
+            });
+
+            KECAMATAN_COORDS.forEach(kecamatan => {
+                if (kecamatan.nama_m_kecamatan.toLowerCase().includes(query)) {
+                    suggestions.push({
+                        title: kecamatan.nama_m_kecamatan,
+                        name: kecamatan.nama_m_kecamatan,
+                        lat: parseFloat(kecamatan.lat_m_kecamatan),
+                        lng: parseFloat(kecamatan.lng_m_kecamatan)
+                    });
+                }
+            });
+
+            
+            // const uniqueSuggestions = Array.from(new Set(suggestions.map(a => a.name)))
+            //     .map(name => suggestions.find(a => a.name === name))
+            //     .slice(0, 10);
+
+            const uniqueSuggestions = Array.from(
+                    new Set(suggestions.map(a => `${a.name}|${a.title}`))
+                )
+                .map(id => suggestions.find(a => `${a.name}|${a.title}` === id))
+                .slice(0, 10);
+
+            if (uniqueSuggestions.length > 0) {
+                uniqueSuggestions.forEach(s => {
+                    const $item = $('<div>', {
+                        class: 'p-3 cursor-pointer hover:bg-gray-100 transition duration-100 flex justify-between items-center border-b border-gray-100 last:border-b-0',
+                        'data-lat': s.lat,
+                        'data-lng': s.lng
+                    }).html(`
+                        <div>
+                            <p class="font-medium text-gray-800">${s.name}</p>
+                            <p class="text-xs text-gray-500">${s.title}</p>
+                        </div>
+                        <!-- Icon Pin -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.82 17.61a.5.5 0 0 0 .18-.32V6.71a.5.5 0 0 0-.18-.32l-5.06-3.4c-.2-.13-.48-.13-.68 0l-5.06 3.4a.5.5 0 0 0-.18.32v10.58c0 .12.06.24.18.32l5.06 3.4c.2.13.48.13.68 0l5.06-3.4z"></path></svg>
+                    `);
+
+                    $item.on('click', function() {
+                        panToLocation(parseFloat($(this).data('lat')), parseFloat($(this).data('lng')), 17);
+                    });
+
+                    $suggestionsList.append($item);
+                });
+                $suggestionsList.removeClass('hidden');
+            } else {
+                $suggestionsList.addClass('hidden');
+            }
+        }
+        
+        function searchLocation() {
+            const query = $("#location-search").val().trim().toLowerCase();
+            if (query.length === 0) return;
+
+            const allLocations = [
+                ...MARKER_COORDS.map(m => ({
+                    lat: m.latitude, 
+                    lng: m.longitude, 
+                    search_field: `${m.address} ${m.nama_kecamatan}`.toLowerCase()
+                })), 
+                ...KECAMATAN_COORDS.map(k => ({
+                    lat: k.lat_m_kecamatan, 
+                    lng: k.lng_m_kecamatan, 
+                    search_field: k.nama_kecamatan.toLowerCase()
+                })),
+                ...KELURAHAN_COORDS.map(l => ({
+                    lat: l.latitude, 
+                    lng: l.longitude, 
+                    search_field: `${l.nama_m_kelurahan} ${l.nama_m_kelurahan}`.toLowerCase()
+                }))
+            ];
+
+            const match = allLocations.find(loc => loc.search_field.includes(query));
+
+            if (match) {
+                panToLocation(parseFloat(match.lat), parseFloat(match.lng), 14);
+            } else {
+                customAlert('Lokasi tidak ditemukan. Coba kata kunci lain.');
+            }
+        }
+
+        function handleKecamatanChange() {
+            const selectedId = $("#kecamatan-dropdown").val();
+            var ALL_CAMERAS = []
+            // console.log("Selected Kecamatan ID:", selectedId);
+            if (selectedId === '99') {
+                // ALL_CAMERAS = MASTER_MARKER_COORDS;
+                // console.log(ALL_CAMERAS);
+                // render_marker(MASTER_MARKER_COORDS);
+                get_cameras_api()
+                map.setView(defaultCoordinates, defaultZoom);
+                return;
+            } else {
+                // Fokus ke koordinat kecamatan
+                const kecamatan = KECAMATAN_COORDS.find(k => k.id_m_kecamatan === selectedId);
+                get_cameras_api()
+                
+                // console.log(kecamatan);
+                if (kecamatan) {
+                    panToLocation(parseFloat(kecamatan.lat_m_kecamatan), parseFloat(kecamatan.lng_m_kecamatan), 15);
+
+                    // console.log(kecamatan)
+
+                    // const filteredMarkers = ALL_CAMERAS.filter(m => m.nama_kecamatan.trim() === "BLIMBING");
+                    // const filteredMarkers = MASTER_MARKER_COORDS.filter(m => {
+                        
+                    //     console.log(m.nama_kecamatan.toString().trim().toUpperCase() === kecamatan.nama_m_kecamatan.toString().trim().toUpperCase());
+
+                    //     return m.nama_kecamatan && 
+                    //             m.nama_kecamatan.toString().trim().toUpperCase() == kecamatan.nama_m_kecamatan.toString().trim().toUpperCase();
+                    // });
+                    // console.log("Filtered Markers for Kecamatan:", kecamatan.nama_m_kecamatan);
+                    // console.log(filteredMarkers);
+                    // console.log(MASTER_MARKER_COORDS);
+
+                    // render_marker(filteredMarkers);
+                }
+                return;
+            }
+        }
+
+    //=========================================================================//
+    //------------------------------Pencarian & Filter-------------------------//
+    //=========================================================================//
+
+    //=========================================================================//
+    //------------------------------cctv-video---------------------------------//
+    //=========================================================================//
+
+        let streamCheckInterval;
+        let lastTimeUpdate = Date.now();
+        const FREEZE_THRESHOLD_MS = 15000;
+        const HEARTBEAT_INTERVAL_MS = 5000;
+        
+        let hls;
+
+        function setupHeartbeatDetector() {
+            if (streamCheckInterval) {
+                clearInterval(streamCheckInterval);
+            }
+            
+            lastTimeUpdate = Date.now();
+
+            streamCheckInterval = setInterval(() => {
+                const timeSinceLastUpdate = Date.now() - lastTimeUpdate;
+                
+                if (timeSinceLastUpdate > FREEZE_THRESHOLD_MS) {
+                    console.warn(`[CCTV RELOAD] Stream freeze detected (${timeSinceLastUpdate / 1000}s without update). Attempting reload.`);
+                    
+                    clearInterval(streamCheckInterval);
+                    
+                    if ($('#cctv-modal-overlay').is(':visible')) {
+                        $('#quality-info').removeClass().addClass('text-xs px-2 py-1 rounded-full bg-red-600 text-white font-semibold').text('Macet, Reloading...');
+                        setTimeout(loadCCTVContent, 500); 
+                    }
+                }
+            }, HEARTBEAT_INTERVAL_MS);
+        }
+
+        function updatePlayPauseIcon(videoElement) {
+            const $iconContainer = $('#play-pause-icon');
+            if (!videoElement || !$iconContainer.length) return;
+
+            if (videoElement.paused) {
+                $iconContainer.removeClass('hidden-play');
+                $iconContainer.html(`
+                    <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                `);
+            } else {
+                $iconContainer.addClass('hidden-play');
+                $iconContainer.html(`
+                    <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                `);
+            }
+        }
+        
+        function loadCCTVContent(id_stream) {
+
+            let CCTV_URL = 'https://cctv.malangkota.go.id/cctv-stream/streams/' + id_stream + '.m3u8';
+
+            if (streamCheckInterval) clearInterval(streamCheckInterval);
+            if (hls) hls.destroy();
+
+            $('#cctv-viewer').empty().html('<p id="loading-message" class="text-xl animate-pulse text-white">Memuat stream video...</p>');
+            $('#quality-selector').prop('disabled', true).empty().append('<option value="-1">Auto</option>');
+
+            const $video = $('<video>', {
+                id: 'cctv-stream-video',
+                autoplay: true,
+                controls: false,
+                muted: true, 
+                playsinline: true, 
+            });
+
+            const videoElement = $video[0];
+            
+            const $playPauseOverlay = $('<div>', {
+                id: 'play-pause-overlay',
+            }).html(`
+                <div id="play-pause-icon" class="play-button-icon hidden-play">
+                    <!-- Ikon akan diisi oleh JS -->
+                </div>
+            `);
+
+            $('#cctv-viewer').empty().append($playPauseOverlay).append($video);
+            
+            $playPauseOverlay.on('click', function() {
+                if (videoElement.paused) {
+                    videoElement.play().catch(e => console.error("Play error:", e));
+                } else {
+                    videoElement.pause();
+                }
+            });
+
+            $video.on('play', function() {
+                updatePlayPauseIcon(videoElement);
+            }).on('pause', function() {
+                updatePlayPauseIcon(videoElement);
+            });
+            // --------------------------------
+            
+            // 2. Inisialisasi HLS.js
+            if (Hls.isSupported()) {
+                hls = new Hls();
+                hls.loadSource(CCTV_URL);
+                hls.attachMedia(videoElement);
+
+                // --- HLS Event Listeners ---
+                hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+                    console.log('Manifest parsed. Levels:', data.levels.length);
+
+                    videoElement.play().catch(error => {
+                        console.log("Autoplay failed:", error.name);
+                        $('#cctv-viewer').append('<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40"><p class="text-white text-lg p-2 text-center rounded">Autoplay diblokir browser. Klik di video untuk memutar.</p></div>');
+                        updatePlayPauseIcon(videoElement);
+                    });
+                });
+
+                hls.on(Hls.Events.LEVEL_SWITCHED, function (event, data) {
+                    updateQualityInfo(hls);
+                });
+
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        console.error('HLS Fatal Error:', data.details);
+                        if (hls) hls.destroy();
+                        if ($('#cctv-modal-overlay').is(':visible')) {
+                            console.log('Attempting auto-reload due to fatal HLS error.');
+                            setTimeout(loadCCTVContent, 2000); 
+                        } else {
+                            $('#cctv-viewer').empty().html(`
+                                <div class="p-4 text-center">
+                                    <p class="text-xl text-red-400">Error Fatal HLS.</p>
+                                    <p class="text-sm text-gray-400">Coba Segarkan Stream.</p>
+                                </div>
+                            `);
+                            $('#refresh-modal-button').prop('disabled', false).text('Coba Lagi');
+                        }
+                    }
+                });
+
+            } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                videoElement.src = CCTV_URL;
+                console.log('Using native HLS support.');
+                $('#quality-info').removeClass().addClass('text-xs px-2 py-1 rounded-full bg-gray-600 text-white font-semibold').text('Native HLS (Auto)');
+                
+                videoElement.play().catch(error => {
+                    console.log("Autoplay failed (Native):", error.name);
+                    $('#cctv-viewer').append('<div class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40"><p class="text-white text-lg p-2 text-center rounded">Autoplay diblokir browser. Klik di video untuk memutar.</p></div>');
+                    updatePlayPauseIcon(videoElement);
+                });
+            } else {
+                $('#cctv-viewer').empty().html(`
+                    <div class="p-4 text-center">
+                        <p class="text-xl text-red-400">Browser Tidak Mendukung HLS.</p>
+                        <p class="text-sm text-gray-400">Silakan gunakan browser modern (Chrome, Firefox, Safari).</p>
+                    </div>
+                `);
+                $('#refresh-modal-button').prop('disabled', false).text('Coba Lagi');
+                return;
+            }
+
+            $video.on('timeupdate', function() {
+                lastTimeUpdate = Date.now();
+            });
+
+            $video.on('canplay', function() {
+                $('#loading-message').remove();
+                $('#refresh-modal-button').prop('disabled', false).text('Segarkan Stream');
+                setupHeartbeatDetector();
+                updatePlayPauseIcon(videoElement);
+            });
+            
+            $video.on('error', function() {
+                if (streamCheckInterval) clearInterval(streamCheckInterval);
+                $('#quality-info').text('Error');
+                $('#cctv-viewer').empty().html(`
+                    <div class="p-4 text-center">
+                        <p class="text-xl text-red-400">Gagal Memuat Stream.</p>
+                        <p class="text-sm text-gray-400">Pastikan URL M3U8 aktif dan Nginx di-proxy dengan benar.</p>
+                    </div>
+                `);
+                $('#refresh-modal-button').prop('disabled', false).text('Coba Lagi');
+            });
+        }
+
+        function reloadStream() {
+            console.log("Memuat ulang stream...");
+            // lagWarning.classList.remove('hidden');
+            // loadingOverlay.style.opacity = "1";
+            
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+            
+            setTimeout(() => {
+                loadCCTVContent(chache_id_marker)
+                lagWarning.classList.add('hidden');
+                loadingOverlay.style.opacity = "0";
+                lastUpdatedText.innerText = "Status: Berhasil Dimuat Ulang";
+            }, 500);
+        }
+
+        refreshBtn.addEventListener('click', reloadStream);
+
+        function stopStream() {
+            // console.log("Menghentikan akses stream...");
+            const videoElement = document.getElementById('cctv-stream-video');
+            
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+
+            videoElement.src = "";
+            videoElement.load();
+        }
+
+    //=========================================================================//
+    //------------------------------cctv-video---------------------------------//
+    //=========================================================================//
+
+</script>
+</html>
